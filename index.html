@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="海賊お宝ラッシュ">
+<meta name="format-detection" content="telephone=no">
+<meta name="theme-color" content="#08141f">
+<title>海賊お宝ラッシュ</title>
+<style>
+html,body{touch-action:manipulation;-webkit-touch-callout:none}:root{color-scheme:dark}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;min-height:100%;background:#08141f;color:#e8f0f6;font-family:-apple-system,"Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif;-webkit-text-size-adjust:100%;overscroll-behavior:none}
+main{max-width:520px;margin:0 auto;padding:calc(env(safe-area-inset-top,0px) + 28px) 20px calc(env(safe-area-inset-bottom,0px) + 28px)}
+h1{margin:0;font-size:28px;color:#f2b84b;letter-spacing:.04em}
+.sub{margin:4px 0 22px;color:#8fa6b8;font-size:14px;font-weight:700}
+#status{padding:14px 16px;border-radius:12px;background:#10283a;border:1px solid #1f4560;font-weight:700;line-height:1.6}
+#status.err{background:#3a1519;border-color:#7a2a33;color:#ffd5d9}
+#status.ok{background:#12301f;border-color:#2c6b43;color:#d6ffe4}
+form{margin:16px 0 0;padding:16px;border-radius:12px;background:#0d2031;border:1px solid #1f4560}
+form[hidden]{display:none}
+label{display:block;font-size:14px;font-weight:700;margin-bottom:8px}
+input[type=password],input[type=text]{width:100%;height:50px;border-radius:10px;border:1px solid #2d5b7b;background:#06101a;color:#fff;font-size:18px;padding:0 14px}
+.chk{display:flex;align-items:center;gap:10px;margin:14px 0 0;font-weight:600}
+.chk input{width:22px;height:22px}
+button{width:100%;height:52px;margin-top:14px;border:0;border-radius:12px;font-size:17px;font-weight:800;color:#1a1204;background:#f2b84b}
+button.sub2{background:#1b3a52;color:#d7e6f2;font-size:15px;height:46px}
+.btns{margin-top:10px}
+pre{margin:18px 0 0;padding:12px;border-radius:10px;background:#050c13;color:#8fb1c9;font-size:12px;line-height:1.7;white-space:pre-wrap;word-break:break-all;min-height:24px}
+a{color:#7cc4ff}
+</style>
+</head>
+<body>
+<main>
+  <h1>海賊お宝ラッシュ</h1>
+  <p class="sub">iPhone専用 起動ファイル(開くたびに最新版を確認します)</p>
+  <div id="status">準備しています…</div>
+  <form id="pwForm" hidden>
+    <label for="pw" id="pwLabel">ゲームのパスワード</label>
+    <input id="pw" type="password" autocomplete="current-password" enterkeyhint="go" autocapitalize="off" autocorrect="off">
+    <label class="chk"><input id="remember" type="checkbox" checked> このiPhoneにパスワードを覚えておく</label>
+    <button type="submit">起動する</button>
+  </form>
+  <div class="btns">
+    <button type="button" id="btnRetry" class="sub2">最新版を取り直す</button>
+    <button type="button" id="btnClear" class="sub2">保存したデータを消す</button>
+  </div>
+  <pre id="log"></pre>
+</main>
+<noscript><div style="position:fixed;inset:0;z-index:99999;background:#08141f;color:#e8f0f6;padding:24px 20px;font:700 16px/1.8 -apple-system,'Hiragino Sans',sans-serif;overflow:auto"><h2 style="color:#f2b84b">海賊お宝ラッシュ</h2><p>JavaScriptが動いていないため、このままでは遊べません。iPhoneの「ファイル」アプリのプレビュー画面では動かないので、共有ボタンから Safari などのブラウザで開いてください(出ないときは、HTMLを開けるアプリ(Documentsなど)で開いてください)。</p></div></noscript>
+<script>
+(function(){
+  /* 海賊お宝ラッシュ iPhone専用起動ファイル
+     GitHubの game.enc(暗号化したゲーム本体)を取ってきて、パスワードで開いて起動する。
+     ネットにつながらないときは、前回取ってきた版で起動する。 */
+  var SOURCES=[
+    ['GitHub Pages','https://kichivbnmlo.github.io/otakara5846/'],
+    ['GitHubリポジトリ','https://raw.githubusercontent.com/kichivbnmlo/otakara5846/HEAD/']
+  ];
+  var K_ENC='orl-enc', K_PW='orl-pw', TIMEOUT=12000;
+  var mem={};
+  function $(id){return document.getElementById(id);}
+  function ls(k,v){
+    try{
+      if(v===undefined) return localStorage.getItem(k);
+      if(v===null) localStorage.removeItem(k); else localStorage.setItem(k,v);
+      return true;
+    }catch(e){
+      if(v===undefined) return mem[k]===undefined?null:mem[k];
+      if(v===null) delete mem[k]; else mem[k]=v;
+      return false;
+    }
+  }
+  function log(m){ $('log').textContent+=m+'\n'; }
+  function status(m,cls){ var s=$('status'); s.textContent=m; s.className=cls||''; }
+  function b64(s){var b=atob(s),a=new Uint8Array(b.length);for(var i=0;i<b.length;i++)a[i]=b.charCodeAt(i);return a;}
+  var HAS_SUBTLE=!!(window.crypto&&window.crypto.subtle);
+  function decrypt(enc,pw){ return HAS_SUBTLE?webDecrypt(enc,pw):softDecrypt(enc,pw); }
+  function webDecrypt(enc,pw){
+    return crypto.subtle.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveKey']).then(function(km){
+      return crypto.subtle.deriveKey({name:'PBKDF2',salt:b64(enc.s),iterations:enc.n,hash:'SHA-256'},km,{name:'AES-GCM',length:256},false,['decrypt']);
+    }).then(function(key){
+      return crypto.subtle.decrypt({name:'AES-GCM',iv:b64(enc.i)},key,b64(enc.d));
+    }).then(function(buf){return new TextDecoder().decode(buf);});
+  }
+  /* ===== 予備の復号(暗号機能 crypto.subtle が使えない環境用: httpのページ、一部のアプリ内ブラウザなど) =====
+     PBKDF2-HMAC-SHA256 と AES-256-GCM(復号のみ)を自前で行う。少し時間がかかる。 */
+  var K256=new Int32Array([0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2]);
+  var SW=new Int32Array(64);
+  function sha256Compress(st,w){
+    var i,a,b,c,d,e,f,g,h,t1,t2,x,y;
+    for(i=0;i<16;i++) SW[i]=w[i];
+    for(i=16;i<64;i++){
+      x=SW[i-15]; y=SW[i-2];
+      SW[i]=(SW[i-16]+(((x>>>7)|(x<<25))^((x>>>18)|(x<<14))^(x>>>3))+SW[i-7]+(((y>>>17)|(y<<15))^((y>>>19)|(y<<13))^(y>>>10)))|0;
+    }
+    a=st[0];b=st[1];c=st[2];d=st[3];e=st[4];f=st[5];g=st[6];h=st[7];
+    for(i=0;i<64;i++){
+      t1=(h+(((e>>>6)|(e<<26))^((e>>>11)|(e<<21))^((e>>>25)|(e<<7)))+((e&f)^(~e&g))+K256[i]+SW[i])|0;
+      t2=((((a>>>2)|(a<<30))^((a>>>13)|(a<<19))^((a>>>22)|(a<<10)))+((a&b)^(a&c)^(b&c)))|0;
+      h=g;g=f;f=e;e=(d+t1)|0;d=c;c=b;b=a;a=(t1+t2)|0;
+    }
+    st[0]=(st[0]+a)|0;st[1]=(st[1]+b)|0;st[2]=(st[2]+c)|0;st[3]=(st[3]+d)|0;st[4]=(st[4]+e)|0;st[5]=(st[5]+f)|0;st[6]=(st[6]+g)|0;st[7]=(st[7]+h)|0;
+  }
+  var IV256=[0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+  function sha256Bytes(bytes,st,prefixLen){      /* st: 途中の状態(省略可)、prefixLen: すでに処理した長さ */
+    st=st?new Int32Array(st):new Int32Array(IV256); prefixLen=prefixLen||0;
+    var n=bytes.length, total=n+1+8, padded=new Uint8Array(Math.ceil(total/64)*64), i, w=new Int32Array(16), b, bits=(prefixLen+n)*8;
+    padded.set(bytes); padded[n]=0x80;
+    padded[padded.length-4]=(bits>>>24)&255; padded[padded.length-3]=(bits>>>16)&255; padded[padded.length-2]=(bits>>>8)&255; padded[padded.length-1]=bits&255;
+    for(b=0;b<padded.length;b+=64){
+      for(i=0;i<16;i++) w[i]=(padded[b+i*4]<<24)|(padded[b+i*4+1]<<16)|(padded[b+i*4+2]<<8)|padded[b+i*4+3];
+      sha256Compress(st,w);
+    }
+    return st;
+  }
+  function wordsToBytes(st){ var o=new Uint8Array(st.length*4),i; for(i=0;i<st.length;i++){ o[i*4]=(st[i]>>>24)&255;o[i*4+1]=(st[i]>>>16)&255;o[i*4+2]=(st[i]>>>8)&255;o[i*4+3]=st[i]&255; } return o; }
+  function softPbkdf2(pwBytes,salt,iter,onProgress){
+    return new Promise(function(resolve){
+      var key=pwBytes; if(key.length>64) key=wordsToBytes(sha256Bytes(key));
+      var ip=new Uint8Array(64), op=new Uint8Array(64), i, w=new Int32Array(16);
+      for(i=0;i<64;i++){ ip[i]=0x36^(key[i]||0); op[i]=0x5c^(key[i]||0); }
+      function stateAfter(blk){ var st=new Int32Array(IV256), j; for(j=0;j<16;j++) w[j]=(blk[j*4]<<24)|(blk[j*4+1]<<16)|(blk[j*4+2]<<8)|blk[j*4+3]; sha256Compress(st,w); return st; }
+      var ipS=stateAfter(ip), opS=stateAfter(op);
+      var msg=new Uint8Array(salt.length+4); msg.set(salt); msg[salt.length+3]=1;
+      var inner=sha256Bytes(msg,ipS,64), U=new Int32Array(8), T=new Int32Array(8), st=new Int32Array(8);
+      /* U1 = HMAC(P, salt||1) */
+      var ow=new Int32Array(16); for(i=0;i<8;i++) ow[i]=inner[i]; ow[8]=0x80000000|0; ow[15]=768; st.set(opS); sha256Compress(st,ow);
+      U.set(st); T.set(st);
+      var iw=new Int32Array(16), done=1, step=15000;
+      function run(){
+        var n=Math.min(step,iter-done), k, j;
+        for(k=0;k<n;k++){
+          for(j=0;j<8;j++) iw[j]=U[j]; iw[8]=0x80000000|0; for(j=9;j<15;j++) iw[j]=0; iw[15]=768;
+          st.set(ipS); sha256Compress(st,iw);
+          for(j=0;j<8;j++) ow[j]=st[j]; ow[8]=0x80000000|0; for(j=9;j<15;j++) ow[j]=0; ow[15]=768;
+          st.set(opS); sha256Compress(st,ow);
+          for(j=0;j<8;j++){ U[j]=st[j]; T[j]^=st[j]; }
+        }
+        done+=n;
+        if(onProgress) onProgress(done/iter);
+        if(done<iter) setTimeout(run,0); else resolve(wordsToBytes(T));
+      }
+      run();
+    });
+  }
+  var SBOX=new Uint8Array(256);
+  (function(){
+    var p=1,q=1,x;
+    function rl(v,s){ return ((v<<s)|(v>>(8-s)))&255; }
+    do{
+      p=(p^((p<<1)&255)^((p&0x80)?0x1b:0))&255;
+      q^=(q<<1)&255; q^=(q<<2)&255; q^=(q<<4)&255; if(q&0x80) q^=0x09;
+      x=q^rl(q,1)^rl(q,2)^rl(q,3)^rl(q,4);
+      SBOX[p]=(x^0x63)&255;
+    }while(p!==1);
+    SBOX[0]=0x63;
+  })();
+  function aesExpand(key){
+    var w=new Uint8Array(240), i, rc=1, t0,t1,t2,t3,tmp,k; w.set(key);
+    for(i=32;i<240;i+=4){
+      t0=w[i-4];t1=w[i-3];t2=w[i-2];t3=w[i-1]; k=i/4;
+      if(k%8===0){ tmp=t0; t0=SBOX[t1]^rc; t1=SBOX[t2]; t2=SBOX[t3]; t3=SBOX[tmp]; rc=((rc<<1)^((rc&0x80)?0x1b:0))&255; }
+      else if(k%8===4){ t0=SBOX[t0];t1=SBOX[t1];t2=SBOX[t2];t3=SBOX[t3]; }
+      w[i]=w[i-32]^t0; w[i+1]=w[i-31]^t1; w[i+2]=w[i-30]^t2; w[i+3]=w[i-29]^t3;
+    }
+    return w;
+  }
+  function xt(a){ return ((a<<1)^((a&0x80)?0x1b:0))&255; }
+  function aesBlock(rk,inp,out){
+    var s=new Uint8Array(16), t=new Uint8Array(16), i, r, c, a0,a1,a2,a3, tt;
+    for(i=0;i<16;i++) s[i]=inp[i]^rk[i];
+    for(r=1;r<=14;r++){
+      for(i=0;i<16;i++) s[i]=SBOX[s[i]];
+      for(c=0;c<4;c++){ t[4*c]=s[4*c]; t[4*c+1]=s[4*((c+1)&3)+1]; t[4*c+2]=s[4*((c+2)&3)+2]; t[4*c+3]=s[4*((c+3)&3)+3]; }
+      if(r<14){
+        for(c=0;c<4;c++){
+          a0=t[4*c];a1=t[4*c+1];a2=t[4*c+2];a3=t[4*c+3]; tt=a0^a1^a2^a3;
+          s[4*c]=a0^tt^xt(a0^a1); s[4*c+1]=a1^tt^xt(a1^a2); s[4*c+2]=a2^tt^xt(a2^a3); s[4*c+3]=a3^tt^xt(a3^a0);
+        }
+      } else { for(i=0;i<16;i++) s[i]=t[i]; }
+      for(i=0;i<16;i++) s[i]^=rk[r*16+i];
+    }
+    for(i=0;i<16;i++) out[i]=s[i];
+  }
+  function softDecrypt(enc,pw){
+    var salt=b64(enc.s), iv=b64(enc.i), data=b64(enc.d);
+    return softPbkdf2(new TextEncoder().encode(pw),salt,enc.n,function(f){ status('パスワードを確認しています… '+Math.round(f*100)+'%',''); }).then(function(key){
+      status('ゲームを開いています…','');
+      return new Promise(function(resolve,reject){
+        setTimeout(function(){
+          try{
+            var rk=aesExpand(key), len=data.length-16, out=new Uint8Array(len), ctr=new Uint8Array(16), ks=new Uint8Array(16), n=2, off, j, m;
+            ctr.set(iv.subarray(0,12));
+            for(off=0;off<len;off+=16){
+              ctr[12]=(n>>>24)&255; ctr[13]=(n>>>16)&255; ctr[14]=(n>>>8)&255; ctr[15]=n&255; n++;
+              aesBlock(rk,ctr,ks); m=Math.min(16,len-off);
+              for(j=0;j<m;j++) out[off+j]=data[off+j]^ks[j];
+            }
+            var h=new TextDecoder().decode(out);
+            if(!/^\s*<!doctype html/i.test(h)||h.indexOf('<canvas')<0) reject(new Error('password'));
+            else resolve(h);
+          }catch(e){ reject(e); }
+        },30);
+      });
+    });
+  }
+
+  function fetchText(url){
+    var ctl=(typeof AbortController!=='undefined')?new AbortController():null, timer=null;
+    var p=fetch(url+'game.enc?t='+Date.now(),{cache:'no-store',signal:ctl?ctl.signal:undefined}).then(function(r){
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      return r.text();
+    });
+    var to=new Promise(function(_,rej){ timer=setTimeout(function(){ if(ctl) ctl.abort(); rej(new Error('時間切れ')); },TIMEOUT); });
+    return Promise.race([p,to]).then(function(t){clearTimeout(timer);return t;},function(e){clearTimeout(timer);throw e;});
+  }
+  function getLatest(){
+    var i=0;
+    function next(){
+      if(i>=SOURCES.length) return Promise.reject(new Error('どの場所からも取得できませんでした'));
+      var s=SOURCES[i++];
+      return fetchText(s[1]).then(function(raw){
+        log('取得OK: '+s[0]+'('+Math.round(raw.length/1024)+'KB)');
+        return raw;
+      },function(e){
+        log('取得できません: '+s[0]+' → '+(e&&e.message||e));
+        return next();
+      });
+    }
+    return next();
+  }
+  var pwWait=null;
+  function askPw(msg){
+    $('pwLabel').textContent=msg;
+    $('pwForm').hidden=false;
+    status(msg,'');
+    try{ $('pw').focus(); }catch(e){}
+    return new Promise(function(res){ pwWait=res; });
+  }
+  $('pwForm').addEventListener('submit',function(ev){
+    ev.preventDefault();
+    var v=$('pw').value;
+    if(!v||!pwWait) return;
+    var r=pwWait; pwWait=null; r(v);
+  });
+  function openWithPw(raw){
+    var enc=JSON.parse(raw), tries=0;
+    function attempt(pw,fromSaved){
+      var go=pw?Promise.resolve(pw):askPw(tries?'パスワードが違います。もう一度入力してください':'ゲームのパスワードを入力してください');
+      return go.then(function(p){
+        status('ゲームを開いています…','');
+        $('pwForm').hidden=true;
+        return decrypt(enc,p).then(function(h){
+          if($('remember').checked) ls(K_PW,p);
+          return h;
+        },function(){
+          ls(K_PW,null); tries++;
+          log('パスワードが合いませんでした');
+          return attempt(null,false);
+        });
+      });
+    }
+    return attempt(ls(K_PW),true);
+  }
+  function launch(h){
+    status('起動します…','ok');
+    setTimeout(function(){ document.open(); document.write(h); document.close(); },60);
+  }
+  function main(force){
+    $('log').textContent='';
+    $('pwForm').hidden=true;
+    if(!HAS_SUBTLE) log('この環境では暗号機能が使えないため、予備の方式で開きます(少し時間がかかります)');
+    var cache=ls(K_ENC);
+    status('最新版を確認しています…','');
+    getLatest().then(function(raw){
+      if(!force && cache && raw===cache) log('保存されている版が最新です');
+      else log('新しい版を取得しました');
+      return raw;
+    },function(e){
+      if(cache){ log('ネットにつながらないため、前回取得した版で起動します'); return cache; }
+      throw e;
+    }).then(function(raw){
+      return openWithPw(raw).then(function(h){
+        if(h.indexOf('<canvas')<0) throw new Error('ゲームの中身が正しくありません');
+        if(raw!==cache){ if(ls(K_ENC,raw)===false) log('この端末には保存できませんでした(次回もネットが必要です)'); }
+        launch(h);
+      });
+    }).catch(function(e){
+      status('起動できませんでした: '+(e&&e.message||e)+'\n下の「最新版を取り直す」をもう一度押してください。','err');
+      log('エラー: '+(e&&e.message||e));
+    });
+  }
+  $('btnRetry').addEventListener('click',function(){ main(true); });
+  $('btnClear').addEventListener('click',function(){
+    ls(K_ENC,null); ls(K_PW,null);
+    status('保存したデータ(パスワードと前回の版)を消しました。','ok');
+    log('保存データを削除しました');
+  });
+  main(false);
+})();
+</script>
+</body>
+</html>
